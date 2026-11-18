@@ -2,6 +2,11 @@ name: Build TWRP Malachite Android 16
 
 on:
   workflow_dispatch:
+    inputs:
+      allow_missing:
+        description: "ALLOW_MISSING_DEPENDENCIES (true/false)"
+        required: false
+        default: "true"
 
 permissions:
   contents: read
@@ -117,10 +122,21 @@ jobs:
             exit 1
           fi
 
+      - name: Find stale references
+        working-directory: twrp
+        run: |
+          grep -rn "apc-ndk_platform" . \
+            --include=Android.bp --include=*.mk --include=*.bp \
+            --exclude-dir=.repo --exclude-dir=out --exclude-dir=.git \
+            | head -n 30 || true
+          echo "grep finished"
+
       - name: Build TWRP vendor_boot
         working-directory: twrp
         run: |
-          export ALLOW_MISSING_DEPENDENCIES=true
+          if [ "${{ github.event.inputs.allow_missing }}" = "true" ]; then
+            export ALLOW_MISSING_DEPENDENCIES=true
+          fi
           export NINJA_ARGS="-j2"
 
           source build/envsetup.sh
