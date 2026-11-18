@@ -122,14 +122,44 @@ jobs:
             exit 1
           fi
 
-      - name: Find stale references
+      - name: Fix APC library name in libtar
         working-directory: twrp
         run: |
-          grep -rn "apc-ndk_platform" . \
+          set -e
+
+          FILE="bootable/recovery/libtar/Android.mk"
+          OLD="android.security.apc-ndk_platform"
+          NEW="android.security.apc-ndk"
+
+          if [ ! -f "$FILE" ]; then
+            echo "ERROR: $FILE was not found."
+            exit 1
+          fi
+
+          if ! grep -Fq "$OLD" "$FILE"; then
+            echo "ERROR: The old library name was not found in $FILE."
+            echo "Contents of the file:"
+            cat "$FILE"
+            exit 1
+          fi
+
+          sed -i "s/${OLD}/${NEW}/g" "$FILE"
+
+          if grep -Fq "$OLD" "$FILE"; then
+            echo "ERROR: The old library name is still present in $FILE."
+            exit 1
+          fi
+
+          echo "Updated library reference in $FILE:"
+          grep -nF "$NEW" "$FILE"
+
+      - name: Find remaining stale references
+        working-directory: twrp
+        run: |
+          grep -rn "android.security.apc-ndk_platform" . \
             --include=Android.bp --include=*.mk --include=*.bp \
             --exclude-dir=.repo --exclude-dir=out --exclude-dir=.git \
             | head -n 30 || true
-          echo "grep finished"
 
       - name: Build TWRP vendor_boot
         working-directory: twrp
