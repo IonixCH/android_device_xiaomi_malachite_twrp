@@ -1,5 +1,5 @@
 
-name: Build TWRP Malachite
+name: Build TWRP Malachite Android 16
 
 on:
   workflow_dispatch:
@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   build:
+    name: Compile TWRP
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
@@ -22,8 +23,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
+          sudo apt-get update -o Acquire::Retries=3
+
           sudo apt-get install -y \
+            -o Acquire::Retries=3 \
             git-core gnupg flex bison build-essential \
             zip curl zlib1g-dev gcc-multilib \
             g++-multilib libc6-dev-i386 \
@@ -37,21 +40,24 @@ jobs:
       - name: Install repo
         run: |
           mkdir -p "$HOME/bin"
-          curl https://storage.googleapis.com/git-repo-downloads/repo \
+
+          curl --retry 5 --retry-delay 3 \
+            https://storage.googleapis.com/git-repo-downloads/repo \
             -o "$HOME/bin/repo"
+
           chmod +x "$HOME/bin/repo"
           echo "$HOME/bin" >> "$GITHUB_PATH"
 
-      - name: Initialize TWRP source
+      - name: Initialize TWRP
         run: |
-          mkdir twrp
+          mkdir -p twrp
           cd twrp
 
           repo init --depth=1 \
             -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git \
             -b twrp-14.1
 
-      - name: Add Malachite device tree
+      - name: Add Malachite manifest
         working-directory: twrp
         run: |
           mkdir -p .repo/local_manifests
@@ -59,11 +65,14 @@ jobs:
           cat > .repo/local_manifests/malachite.xml <<'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <manifest>
-            <remote name="github" fetch="https://github.com/" />
+            <remote
+              name="malachite"
+              fetch="https://github.com/" />
+
             <project
               path="device/xiaomi/malachite"
               name="mytiantian001/android_device_xiaomi_malachite_twrp"
-              remote="github"
+              remote="malachite"
               revision="A16" />
           </manifest>
           EOF
@@ -73,17 +82,24 @@ jobs:
         run: |
           repo sync -c --no-tags --optimized-fetch -j2
 
-      - name: Apply required patch
+      - name: Check disk space
+        run: |
+          df -h
+
+      - name: Apply Malachite patch
         working-directory: twrp
         run: |
-          cd bootable/recovery
+          PATCH="device/xiaomi/malachite/patches/0001-minuitwrp-skip-unavailable-aidl-haptics.patch"
 
-          PATCH="../../device/xiaomi/malachite/patches/0001-minuitwrp-skip-unavailable-aidl-haptics.patch"
+          if git -C bootable/recovery apply --check "../../$PATCH"; then
+            git -C bootable/recovery apply "../../$PATCH"
+            echo "Patch applied successfully."
+          else
+            echo "Patch cannot be applied. Check the base revision."
+            exit 1
+          fi
 
-          git apply --check "$PATCH"
-          git apply "$PATCH"
-
-      - name: Build vendor_boot
+      - name: Build TWRP vendor_boot
         working-directory: twrp
         run: |
           export ALLOW_MISSING_DEPENDENCIES=true
@@ -94,17 +110,21 @@ jobs:
 
           mka vendorbootimage -j2
 
-      - name: Verify output
+      - name: Verify image
         working-directory: twrp
         run: |
           IMAGE="out/target/product/malachite/vendor_boot.img"
 
-          test -s "$IMAGE"
+          if [ ! -s "$IMAGE" ]; then
+            echo "ERROR: vendor_boot.img not found!"
+            exit 1
+          fi
 
+          echo "Build successful!"
           ls -lh "$IMAGE"
           sha256sum "$IMAGE"
 
-      - name: Upload TWRP image
+      - name: Upload TWRP artifact
         uses: actions/upload-artifact@v4
         with:
           name: TWRP-Malachite-Android16
