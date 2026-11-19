@@ -122,27 +122,197 @@ jobs:
             exit 1
           fi
 
+      - name: Apply libtar fscrypt patches (from oulu tree)
+        working-directory: twrp
+        run: |
+          set -e
+          PDIR="$RUNNER_TEMP/libtar-patches"
+          mkdir -p "$PDIR"
+
+          # patch di-embed sebagai base64 supaya tab dan spasi tidak rusak saat copy-paste
+          base64 -d > "$PDIR/0002-libtar-fscrypt-compat-wiring.patch" <<'B64_EOF'
+          ZGlmZiAtLWdpdCBhL2xpYnRhci9BbmRyb2lkLm1rIGIvbGlidGFyL0FuZHJvaWQubWsKaW5kZXgg
+          YzNiYjY5MS4uODg3MzAyNCAxMDA3NTUKLS0tIGEvbGlidGFyL0FuZHJvaWQubWsKKysrIGIvbGli
+          dGFyL0FuZHJvaWQubWsKQEAgLTE0LDcgKzE0LDcgQEAgTE9DQUxfQ19JTkNMVURFUyArPSBleHRl
+          cm5hbC9saWJzZWxpbnV4L2luY2x1ZGUKIExPQ0FMX1NIQVJFRF9MSUJSQVJJRVMgKz0gbGlic2Vs
+          aW51eAogCiBpZmVxICgkKFRXX0lOQ0xVREVfQ1JZUFRPX0ZCRSksIHRydWUpCi0gICAgTE9DQUxf
+          U1RBVElDX0xJQlJBUklFUyArPSBsaWJ2b2xkIGxpYnNjcnlwdF9zdGF0aWMKKyAgICBMT0NBTF9T
+          VEFUSUNfTElCUkFSSUVTICs9IGxpYnZvbGQgbGlic2NyeXB0X3N0YXRpYyBsaWJhc3luY19zYWZl
+          CiAgICAgTE9DQUxfU0hBUkVEX0xJQlJBUklFUyArPSAgXAogICAgICAgICBhbmRyb2lkLmhhcmR3
+          YXJlLmJvb3RAMS4wIFwKICAgICAgICAgYW5kcm9pZC5oYXJkd2FyZS5jb25maXJtYXRpb251aUAx
+          LjAgXApAQCAtMjMsMTAgKzIzLDEwIEBAIGlmZXEgKCQoVFdfSU5DTFVERV9DUllQVE9fRkJFKSwg
+          dHJ1ZSkKICAgICAgICAgYW5kcm9pZC5oYXJkd2FyZS5rZXltYXN0ZXJANC4wIFwKICAgICAgICAg
+          YW5kcm9pZC5oYXJkd2FyZS5rZXltYXN0ZXJANC4xIFwKICAgICAgICAgYW5kcm9pZC5oYXJkd2Fy
+          ZS53ZWF2ZXJAMS4wIFwKLSAgICAgICAgYW5kcm9pZC5zZWN1cml0eS5hcGMtbmRrX3BsYXRmb3Jt
+          IFwKLSAgICAgICAgYW5kcm9pZC5zeXN0ZW0ua2V5c3RvcmUyLVYxLW5ka19wbGF0Zm9ybSBcCi0g
+          ICAgICAgIGFuZHJvaWQuc2VjdXJpdHkuYXV0aG9yaXphdGlvbi1uZGtfcGxhdGZvcm0gXAotICAg
+          ICAgICBhbmRyb2lkLnNlY3VyaXR5Lm1haW50ZW5hbmNlLW5ka19wbGF0Zm9ybSBcCisgICAgICAg
+          IGFuZHJvaWQuc2VjdXJpdHkuYXBjLW5kayBcCisgICAgICAgIGFuZHJvaWQuc3lzdGVtLmtleXN0
+          b3JlMi1WNC1uZGsgXAorICAgICAgICBhbmRyb2lkLnNlY3VyaXR5LmF1dGhvcml6YXRpb24tbmRr
+          IFwKKyAgICAgICAgYW5kcm9pZC5zZWN1cml0eS5tYWludGVuYW5jZS1uZGsgXAogICAgICAgICBs
+          aWJzZWxpbnV4IFwKICAgICAgICAgbGliYmluZGVyX25kayBcCiAgICAgICAgIGxpYmV4dDRfdXRp
+          bHMgXApAQCAtNTMsNyArNTMsOSBAQCBpZmVxICgkKFRXX0lOQ0xVREVfQ1JZUFRPX0ZCRSksIHRy
+          dWUpCiAgICAgICAgIGxpYmh3YmluZGVyIFwKICAgICAgICAgbGliY2hyb21lIFwKICAgICAgICAg
+          bGliYm9vdGxvYWRlcl9tZXNzYWdlIFwKLSAgICAgICAgbGliZ2F0ZWtlZXBlcl9haWRsCisgICAg
+          ICAgIGxpYmdhdGVrZWVwZXJfYWlkbCBcCisgICAgICAgIGxpYnN5c3V0aWxzIFwKKyAgICAgICAg
+          bGliYm9vdF9jb250cm9sX2NsaWVudAogCiAgICAgTE9DQUxfQ0ZMQUdTICs9IC1EVVNFX0ZTQ1JZ
+          UFQKICAgICBpZmVxICgkKFRXX1VTRV9GU0NSWVBUX1BPTElDWSksIDEpCmRpZmYgLS1naXQgYS9s
+          aWJ0YXIvZXh0cmFjdC5jIGIvbGlidGFyL2V4dHJhY3QuYwppbmRleCBiZTk4OWIwLi5mY2Q4NDJm
+          IDEwMDc1NQotLS0gYS9saWJ0YXIvZXh0cmFjdC5jCisrKyBiL2xpYnRhci9leHRyYWN0LmMKQEAg
+          LTU3MCw3ICs1NzAsNyBAQCB0YXJfZXh0cmFjdF9kaXIoVEFSICp0LCBjb25zdCBjaGFyICpyZWFs
+          bmFtZSkKIAkJdWludDhfdCBiaW5hcnlfcG9saWN5W3NpemVdOwogCQltZW1zZXQoJmJpbmFyeV9w
+          b2xpY3ksIDAsIHNpemUpOwogCi0JCWlmICghbG9va3VwX3JlZl90YXIodC0+dGhfYnVmLmZlcCwg
+          JmJpbmFyeV9wb2xpY3lbMF0pKSB7CisJCWlmICghbG9va3VwX3JlZl90YXIoZ2V0X3BvbGljeV9k
+          ZXNjcmlwdG9yKHQtPnRoX2J1Zi5mZXApLCAmYmluYXJ5X3BvbGljeVswXSkpIHsKIAkJCUxPRygi
+          ZXJyb3IgbG9va2luZyB1cCBmc2NyeXB0IHBvbGljeSBmb3IgJyVzJyAtICVzXG4iLCByZWFsbmFt
+          ZSwgZGVzY3JpcHRvcik7CiAJCQlwb2xpY3lfbG9va3VwX2Vycm9yID0gdHJ1ZTsKIAkJfQpkaWZm
+          IC0tZ2l0IGEvbGlidGFyL2xpYnRhci5oIGIvbGlidGFyL2xpYnRhci5oCmluZGV4IGY0MmIyMDEu
+          LjUxZGI4OTQgMTAwNzU1Ci0tLSBhL2xpYnRhci9saWJ0YXIuaAorKysgYi9saWJ0YXIvbGlidGFy
+          LmgKQEAgLTIyLDYgKzIyLDcgQEAKIAogI2lmZGVmIFVTRV9GU0NSWVBUCiAjaW5jbHVkZSAiZnNj
+          cnlwdF9wb2xpY3kuaCIKKyNpbmNsdWRlICJmc2NyeXB0X2NvbXBhdC5oIgogI2VuZGlmCiAKICNp
+          ZmRlZiBfX2NwbHVzcGx1cwo=
+          B64_EOF
+
+          base64 -d > "$PDIR/0003-libtar-add-fscrypt_compat_h.patch" <<'B64_EOF'
+          ZGlmZiAtLWdpdCBhL2xpYnRhci9mc2NyeXB0X2NvbXBhdC5oIGIvbGlidGFyL2ZzY3J5cHRfY29t
+          cGF0LmgKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMC4uZmNjZTJkNwotLS0gL2Rl
+          di9udWxsCisrKyBiL2xpYnRhci9mc2NyeXB0X2NvbXBhdC5oCkBAIC0wLDAgKzEsOTcgQEAKKy8q
+          CisgKiBmc2NyeXB0X2NvbXBhdC5oIC0gbGlidGFyIHRvIHZvbGQgZnNjcnlwdCBwb2xpY3kgQVBJ
+          IGJyaWRnZQorICoKKyAqIGxpYnRhciBjYWxscyBhIHZlcnNpb24tYWdub3N0aWMgZnNjcnlwdCBB
+          UEk6IGEgImZzY3J5cHRfcG9saWN5IiB0eXBlIHBsdXMKKyAqIGdldF9wb2xpY3ksIGdldF9wb2xp
+          Y3lfZGVzY3JpcHRvciwgZ2V0X3BvbGljeV9jb250ZW50LCBnZXRfcG9saWN5X3NpemUgYW5kCisg
+          KiBmc2NyeXB0X3BvbGljeV9zaXplIGFjY2Vzc29ycy4gc3lzdGVtL3ZvbGQgb24gYW5kcm9pZC0x
+          NC4xIGRvZXMgbm90IHByb3ZpZGUKKyAqIHRoZW07IGl0IGV4cG9zZXMgb25seSB0aGUgdmVyc2lv
+          bi1zcGVjaWZpYyBmc2NyeXB0X3BvbGljeV92MSBhbmQKKyAqIGZzY3J5cHRfcG9saWN5X3YyIHN0
+          cnVjdHMsIHdpdGggbG9va3VwX3JlZl9rZXksIGxvb2t1cF9yZWZfdGFyIGFuZAorICogZnNjcnlw
+          dF9wb2xpY3lfZ2V0X3N0cnVjdCBkZWZpbmVkIG92ZXIgdGhvc2UuCisgKgorICogbGlidGFyJ3Mg
+          b3duIEFuZHJvaWQubWsgYWxyZWFkeSBzZWxlY3RzIHRoZSBwb2xpY3kgdmVyc2lvbiBhdCBjb21w
+          aWxlIHRpbWUKKyAqIChVU0VfRlNDUllQVF9QT0xJQ1lfVjEgb3IgX1YyKSBhbmQgcHV0cyBzeXN0
+          ZW0vdm9sZCBvbiB0aGUgaW5jbHVkZSBwYXRoLCBzbworICogImZzY3J5cHRfcG9saWN5IiBjYW4g
+          c2ltcGx5IGFsaWFzIHdoaWNoZXZlciBzdHJ1Y3Qgd2FzIHNlbGVjdGVkLCB3aXRoIHRoZQorICog
+          YWNjZXNzb3JzIGltcGxlbWVudGVkIG9uIHRvcCBvZiBpdC4KKyAqCisgKiBXaXRob3V0IHRoaXMs
+          IGVuYWJsaW5nIFRXX0lOQ0xVREVfQ1JZUFRPX0ZCRSBmYWlscyB0byBidWlsZDogdGhlIGFjY2Vz
+          c29ycworICogYXJlIGNhbGxlZCBpbiBsaWJ0YXIgYXBwZW5kLmMsIGJsb2NrLmMsIGV4dHJhY3Qu
+          YyBhbmQgb3V0cHV0LmMsIGFuZCBkZWZpbmVkCisgKiBub3doZXJlIGluIHRoZSB0cmVlLgorICov
+          CisKKyNpZm5kZWYgRlNDUllQVF9DT01QQVRfSAorI2RlZmluZSBGU0NSWVBUX0NPTVBBVF9ICisK
+          KyNpbmNsdWRlIDxzdGRpbnQuaD4KKyNpbmNsdWRlIDxzdGRib29sLmg+CisjaW5jbHVkZSA8c3Rk
+          aW8uaD4KKyNpbmNsdWRlIDxzdHJpbmcuaD4KKyNpbmNsdWRlIDxsaW51eC9mcy5oPgorCisvKiBQ
+          dWxscyBpbiB0aGUgdjEgYW5kIHYyIHN0cnVjdHMsIGxvb2t1cF9yZWZfa2V5LCBsb29rdXBfcmVm
+          X3RhciwKKyAqIGZzY3J5cHRfcG9saWN5X2dldF9zdHJ1Y3QsIGJ5dGVzX3RvX2hleCBhbmQgdGhl
+          IEZTQ1JZUFRfUE9MSUNZIGRlZmluZXMuCisgKiBSZXNvbHZlcyB0byBzeXN0ZW0vdm9sZC9mc2Ny
+          eXB0X3BvbGljeS5oIHZpYSBMT0NBTF9DX0lOQ0xVREVTLgorICovCisjaW5jbHVkZSAiZnNjcnlw
+          dF9wb2xpY3kuaCIKKworX19CRUdJTl9ERUNMUworCisjaWZkZWYgVVNFX0ZTQ1JZUFRfUE9MSUNZ
+          X1YxCit0eXBlZGVmIHN0cnVjdCBmc2NyeXB0X3BvbGljeV92MSBmc2NyeXB0X3BvbGljeTsKKyNk
+          ZWZpbmUgRlNDUllQVF9DT01QQVRfS0VZX1NJWkUgICAgICBGU19LRVlfREVTQ1JJUFRPUl9TSVpF
+          CisjZGVmaW5lIEZTQ1JZUFRfQ09NUEFUX0tFWV9IRVhfU0laRSAgRlNfS0VZX0RFU0NSSVBUT1Jf
+          U0laRV9IRVgKKyNlbHNlCit0eXBlZGVmIHN0cnVjdCBmc2NyeXB0X3BvbGljeV92MiBmc2NyeXB0
+          X3BvbGljeTsKKyNkZWZpbmUgRlNDUllQVF9DT01QQVRfS0VZX1NJWkUgICAgICBGU0NSWVBUX0tF
+          WV9JREVOVElGSUVSX1NJWkUKKyNkZWZpbmUgRlNDUllQVF9DT01QQVRfS0VZX0hFWF9TSVpFICBG
+          U0NSWVBUX0tFWV9JREVOVElGSUVSX0hFWF9TSVpFCisjZW5kaWYKKworLyogVGhlIGtleSByZWZl
+          cmVuY2U6IG1hc3Rlcl9rZXlfZGVzY3JpcHRvciBvbiB2MSwgbWFzdGVyX2tleV9pZGVudGlmaWVy
+          IG9uIHYyLgorICogUmV0dXJuZWQgbm9uLWNvbnN0IGJlY2F1c2UgbGlidGFyIHdyaXRlcyB0aGUg
+          bG9va2VkLXVwIHRhciBwb2xpY3kgYmFjayBpbnRvCisgKiBpdCAtIGFwcGVuZC5jIGFuZCBleHRy
+          YWN0LmMgYm90aCBtZW1jcHkgaW50byB0aGlzLgorICovCitzdGF0aWMgaW5saW5lIHVpbnQ4X3Qg
+          KmdldF9wb2xpY3lfZGVzY3JpcHRvcihmc2NyeXB0X3BvbGljeSAqZmVwKQoreworI2lmZGVmIFVT
+          RV9GU0NSWVBUX1BPTElDWV9WMQorCXJldHVybiAodWludDhfdCAqKWZlcC0+bWFzdGVyX2tleV9k
+          ZXNjcmlwdG9yOworI2Vsc2UKKwlyZXR1cm4gKHVpbnQ4X3QgKilmZXAtPm1hc3Rlcl9rZXlfaWRl
+          bnRpZmllcjsKKyNlbmRpZgorfQorCisvKiBSYXcgcG9saWN5IHN0cnVjdCwgdXNlZCBhcyB0aGUg
+          ZGVzdGluYXRpb24gd2hlbiByZWFkaW5nIGEgcG9saWN5IGJhY2sgb3V0IG9mCisgKiBhIHRhciBl
+          eHRlbmRlZCBoZWFkZXIuCisgKi8KK3N0YXRpYyBpbmxpbmUgdWludDhfdCAqZ2V0X3BvbGljeShm
+          c2NyeXB0X3BvbGljeSAqZmVwKQoreworCXJldHVybiAodWludDhfdCAqKWZlcDsKK30KKworLyog
+          U2l6ZSBvZiB0aGUgd2hvbGUgcG9saWN5IGJsb2IgYXMgc3RvcmVkIGluIHRoZSB0YXIgaGVhZGVy
+          LiAqLworc3RhdGljIGlubGluZSB1aW50OF90IGZzY3J5cHRfcG9saWN5X3NpemUoY29uc3QgZnNj
+          cnlwdF9wb2xpY3kgKmZlcCkKK3sKKwkodm9pZClmZXA7CisJcmV0dXJuICh1aW50OF90KXNpemVv
+          Zihmc2NyeXB0X3BvbGljeSk7Cit9CisKKy8qIFNpemUgb2YgdGhlIGtleSByZWZlcmVuY2U6IHJh
+          dyBieXRlcywgb3IgdGhlIGhleCBmb3JtIGluY2x1ZGluZyBpdHMgTlVMLgorICogbGlidGFyIHVz
+          ZXMgdGhpcyB0byBzaXplIHN0YWNrIGJ1ZmZlcnMgcGFzc2VkIHRvIGJ5dGVzX3RvX2hleC4KKyAq
+          Lworc3RhdGljIGlubGluZSB1aW50OF90IGdldF9wb2xpY3lfc2l6ZShjb25zdCBmc2NyeXB0X3Bv
+          bGljeSAqZmVwLCBib29sIGhleCkKK3sKKwkodm9pZClmZXA7CisJcmV0dXJuIGhleCA/ICh1aW50
+          OF90KUZTQ1JZUFRfQ09NUEFUX0tFWV9IRVhfU0laRQorCQkgICA6ICh1aW50OF90KUZTQ1JZUFRf
+          Q09NUEFUX0tFWV9TSVpFOworfQorCisvKiBIdW1hbi1yZWFkYWJsZSBzdW1tYXJ5IGZvciBkZWJ1
+          ZyBsb2dnaW5nLiBDYWxsZXJzIHBhc3MgY2hhcls1MF0uICovCitzdGF0aWMgaW5saW5lIHZvaWQg
+          Z2V0X3BvbGljeV9jb250ZW50KGZzY3J5cHRfcG9saWN5ICpmZXAsIGNoYXIgKmNvbnRlbnQpCit7
+          CisJY2hhciBoZXhbRlNDUllQVF9DT01QQVRfS0VZX0hFWF9TSVpFXTsKKworCWJ5dGVzX3RvX2hl
+          eChnZXRfcG9saWN5X2Rlc2NyaXB0b3IoZmVwKSwgRlNDUllQVF9DT01QQVRfS0VZX1NJWkUsIGhl
+          eCk7CisJc25wcmludGYoY29udGVudCwgNTAsICJ2JXU6JXMiLCBmZXAtPnZlcnNpb24sIGhleCk7
+          Cit9CisKK19fRU5EX0RFQ0xTCisKKyNlbmRpZiAvKiBGU0NSWVBUX0NPTVBBVF9IICovCg==
+          B64_EOF
+
+          base64 -d > "$PDIR/0005-fix-fscrypt-policy-buffer-overflow-in-backup.patch" <<'B64_EOF'
+          ZGlmZiAtLWdpdCBhL2xpYnRhci9hcHBlbmQuYyBiL2xpYnRhci9hcHBlbmQuYwppbmRleCAyMjVh
+          ZTFhZC4uM2U0MzVmYmYgMTAwNzU1Ci0tLSBhL2xpYnRhci9hcHBlbmQuYworKysgYi9saWJ0YXIv
+          YXBwZW5kLmMKQEAgLTE1NCwxMCArMTU0LDE3IEBAIHRhcl9hcHBlbmRfZmlsZShUQVIgKnQsIGNv
+          bnN0IGNoYXIgKnJlYWxuYW1lLCBjb25zdCBjaGFyICpzYXZlbmFtZSkKIAkJCXNpemUgPSBnZXRf
+          cG9saWN5X3NpemUodC0+dGhfYnVmLmZlcCwgZmFsc2UpOwogCQkJaGV4X3NpemUgPSBnZXRfcG9s
+          aWN5X3NpemUodC0+dGhfYnVmLmZlcCwgdHJ1ZSk7CiAJCQlkZXNjcmlwdG9yID0gZ2V0X3BvbGlj
+          eV9kZXNjcmlwdG9yKHQtPnRoX2J1Zi5mZXApOworCQkJLy8gVVNFUl9DRV9GU0NSWVBUX1BPTElD
+          WSBldGMuIChzeXN0ZW0vdm9sZC9mc2NyeXB0X3BvbGljeS5oKSBhbHJlYWR5IGVtYmVkCisJCQkv
+          LyB0aGUgcG9saWN5IHZlcnNpb24gYXMgdGhlaXIgZmlyc3QgY2hhcmFjdGVyICgiMkNFIiBvbiB2
+          MiwgIjBDRSIgb24KKwkJCS8vIHYxKSAtIHByZXBlbmRpbmcgIiV1IiBoZXJlIHJlLWFkZHMgdGhh
+          dCBzYW1lIGRpZ2l0LCBzbyBvbiB2MiB0aGlzCisJCQkvLyBwcm9kdWNlZCAiMjJDRSIgKDQgY2hh
+          cnMgKyBOVUwgPSA1IGJ5dGVzKSBpbnRvIGEgNC1ieXRlIGJ1ZmZlci4KKwkJCS8vIEZPUlRJRllf
+          U09VUkNFIGNhdGNoZXMgdGhlIG92ZXJmbG93IGFuZCBTSUdBQlJUcyB0aGUgdGFyLWZvcmsgcHJv
+          Y2VzcywKKwkJCS8vIHdoaWNoIG9ubHkgYSByZWFsIERhdGEgYmFja3VwIG9mIGFuIEZCRS1kZWNy
+          eXB0ZWQgL2RhdGEgZXZlciByZWFjaGVzIC0KKwkJCS8vICJCYWNraW5nIHVwIERhdGEiIC0+ICJj
+          cmVhdGVUYXJGb3JrKCkgcHJvY2VzcyBlbmRlZCB3aXRoIHNpZ25hbDogNiIuCiAJCQljaGFyIHVz
+          ZXJfY2VbNF0sIHVzZXJfZGVbNF0sIHN5c3RlbV9kZVs0XTsKLQkJCXNwcmludGYodXNlcl9jZSwi
+          JXUlcyIsIHQtPnRoX2J1Zi5mZXAtPnZlcnNpb24sIFVTRVJfQ0VfRlNDUllQVF9QT0xJQ1kpOwot
+          CQkJc3ByaW50Zih1c2VyX2RlLCIldSVzIiwgdC0+dGhfYnVmLmZlcC0+dmVyc2lvbiwgVVNFUl9E
+          RV9GU0NSWVBUX1BPTElDWSk7Ci0JCQlzcHJpbnRmKHN5c3RlbV9kZSwiJXUlcyIsIHQtPnRoX2J1
+          Zi5mZXAtPnZlcnNpb24sIFNZU1RFTV9ERV9GU0NSWVBUX1BPTElDWSk7CisJCQlzbnByaW50Zih1
+          c2VyX2NlLCBzaXplb2YodXNlcl9jZSksICIlcyIsIFVTRVJfQ0VfRlNDUllQVF9QT0xJQ1kpOwor
+          CQkJc25wcmludGYodXNlcl9kZSwgc2l6ZW9mKHVzZXJfZGUpLCAiJXMiLCBVU0VSX0RFX0ZTQ1JZ
+          UFRfUE9MSUNZKTsKKwkJCXNucHJpbnRmKHN5c3RlbV9kZSwgc2l6ZW9mKHN5c3RlbV9kZSksICIl
+          cyIsIFNZU1RFTV9ERV9GU0NSWVBUX1BPTElDWSk7CiAjaWZkZWYgREVCVUcKIAkJCUxPRygidmVy
+          c2lvbjogJXVcbiIsIHQtPnRoX2J1Zi5mZXAtPnZlcnNpb24pOwogI2VuZGlmCg==
+          B64_EOF
+
+          echo "=== verifikasi checksum patch ==="
+          echo "1f435ad659900d59a742f93a477524c237cacd0fe672027d58c9071a713d23df  $PDIR/0002-libtar-fscrypt-compat-wiring.patch" | sha256sum -c -
+          echo "a47e83b71ba13c7b808aaef1497d36aa92c167dcdd5f78c770bd92d36d36b712  $PDIR/0003-libtar-add-fscrypt_compat_h.patch" | sha256sum -c -
+          echo "f3a5d6a0901cc051ceba258d350fc05cb2073afa8b10718bd95d4722c7d1ca13  $PDIR/0005-fix-fscrypt-policy-buffer-overflow-in-backup.patch" | sha256sum -c -
+
+          echo "=== cek semua patch bisa di-apply ==="
+          for p in 0002-libtar-fscrypt-compat-wiring 0003-libtar-add-fscrypt_compat_h 0005-fix-fscrypt-policy-buffer-overflow-in-backup; do
+            if ! git -C bootable/recovery apply --check "$PDIR/$p.patch"; then
+              echo "ERROR: $p.patch tidak bisa di-apply ke bootable/recovery."
+              git -C bootable/recovery log -1 --format='bootable/recovery @ %h %s' || true
+              exit 1
+            fi
+          done
+
+          echo "=== apply ==="
+          for p in 0002-libtar-fscrypt-compat-wiring 0003-libtar-add-fscrypt_compat_h 0005-fix-fscrypt-policy-buffer-overflow-in-backup; do
+            git -C bootable/recovery apply "$PDIR/$p.patch"
+            echo "applied: $p"
+          done
+
+          git -C bootable/recovery status --short | head -20
+
       - name: Fix stale ndk_platform references
         working-directory: twrp
         run: |
           set -e
 
-          echo "=== SEBELUM: referensi ndk_platform di bootable/recovery ==="
+          echo "=== SEBELUM: referensi ndk_platform yang tersisa di bootable/recovery ==="
           grep -rn "ndk_platform" bootable/recovery \
             --include=Android.mk --include=Android.bp --include=*.mk || true
 
-          # varian *-ndk_platform sudah dihapus dari AOSP baru, gantinya *-ndk
+          # varian *-ndk_platform sudah dihapus dari AOSP baru, gantinya *-ndk.
+          # keystore2 disamakan ke V4, sama dengan yang dipakai patch libtar di atas.
           FILES=$(grep -rl "ndk_platform" bootable/recovery \
             --include=Android.mk --include=Android.bp --include=*.mk || true)
 
           if [ -z "$FILES" ]; then
             echo "Tidak ada referensi ndk_platform yang perlu diganti."
           else
-            echo "$FILES" | xargs sed -i 's/-ndk_platform/-ndk/g'
+            echo "$FILES" | xargs sed -i \
+              -e 's/android\.system\.keystore2-V1-ndk_platform/android.system.keystore2-V4-ndk/g' \
+              -e 's/-ndk_platform/-ndk/g'
           fi
 
           echo "=== SESUDAH: libtar/Android.mk ==="
-          grep -nE "keystore2|apc|ndk" bootable/recovery/libtar/Android.mk || true
+          grep -nE "keystore2|apc|ndk|libasync_safe|libsysutils|libboot_control_client" bootable/recovery/libtar/Android.mk || true
 
           if grep -rq "ndk_platform" bootable/recovery \
                --include=Android.mk --include=Android.bp --include=*.mk; then
@@ -206,10 +376,10 @@ jobs:
           ls -lh "$IMAGE"
           sha256sum "$IMAGE"
 
-      - name: Upload TWRP artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: TWRP-Malachite-Android16
-          path: twrp/out/target/product/malachite/vendor_boot.img
-          if-no-files-found: error
-          retention-days: 14
+      - name: Check libtar and recovery runtime libraries
+        continue-on-error: true
+        working-directory: twrp
+        run: |
+          R="out/target/product/malachite/recovery/root"
+          if [ ! -d "$R" ]; then
+            echo "::warning::$R tidak ditemukan, cek dile
