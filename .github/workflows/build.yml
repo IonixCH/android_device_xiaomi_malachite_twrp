@@ -382,4 +382,36 @@ jobs:
         run: |
           R="out/target/product/malachite/recovery/root"
           if [ ! -d "$R" ]; then
-            echo "::warning::$R tidak ditemukan, cek dile
+            echo "::warning::$R tidak ditemukan, cek dilewati."
+            exit 0
+          fi
+
+          missing=0
+          for f in system/lib64/libtar.so system/bin/recovery; do
+            if [ ! -f "$R/$f" ]; then
+              echo "::warning::$f tidak ada di ramdisk recovery."
+              missing=1
+              continue
+            fi
+            for lib in $(readelf -d "$R/$f" 2>/dev/null | sed -n 's/.*Shared library: \[\(.*\)\]/\1/p'); do
+              if ! find "$R/system/lib64" "$R/system/lib64/bootstrap" "$R/vendor/lib64" "$R/lib64" \
+                   -maxdepth 1 -name "$lib" 2>/dev/null | grep -q .; then
+                echo "NOT IN RAMDISK: $lib (dibutuhkan $f)"
+                missing=1
+              fi
+            done
+          done
+
+          if [ "$missing" = 1 ]; then
+            echo "::warning::Ada library yang dibutuhkan tapi tidak ada di ramdisk. Library bionic (libc, libm, libdl) bisa muncul di sini padahal aman."
+          else
+            echo "Semua library yang dibutuhkan libtar dan recovery ada di ramdisk."
+          fi
+
+      - name: Upload TWRP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TWRP-Malachite-Android16
+          path: twrp/out/target/product/malachite/vendor_boot.img
+          if-no-files-found: error
+          retention-days: 14
